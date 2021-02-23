@@ -185,7 +185,7 @@ module.exports = {
     ]);
 
     // close websocket connection
-    await this.webSocketClose();
+    //await this.webSocketClose();
 
     // check for multi-channel device
     const multiChannelDevice = !!status.params.switches;
@@ -260,7 +260,7 @@ module.exports = {
     } catch (error) {
       throw new Error(error);
     } finally {
-      await this.webSocketClose();
+      //await this.webSocketClose();
     }
 
     return {
@@ -269,4 +269,40 @@ module.exports = {
       channel: multiChannelDevice ? channel : 1,
     };
   },
+
+  async setWSDeviceParams(deviceId, params, options = {}) {
+    // check for valid power state
+
+    // get extra parameters
+    const { shared = false } = options;
+
+    // if device is shared by other account, fetch device api key
+    if (shared) {
+      const device = await this.getDevice(deviceId);
+      this.deviceApiKey = device.apikey;
+    }
+
+    // get device current state
+    const status = await this.getWSDeviceStatus(deviceId, [
+      'switch',
+      'switches',
+    ]);
+
+    // change device status
+    try {
+      await this.updateDeviceStatus(deviceId, params);
+      await delay(this.wsDelayTime);
+    } catch (error) {
+      throw new Error(error);
+    } finally {
+      //await this.webSocketClose();
+    }
+
+    return {
+      status: 'ok'
+    };
+  },
+
+  
+  
 };
