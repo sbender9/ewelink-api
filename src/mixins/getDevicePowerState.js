@@ -3,6 +3,8 @@ const errors = require('../data/errors');
 
 const deviceStatusPayload = require('../payloads/deviceStatus');
 
+const ChangeStateZeroconf = require('../classes/ChangeStateZeroconf');
+
 module.exports = {
   /**
    * Get current power state for a specific device
@@ -13,6 +15,15 @@ module.exports = {
    * @returns {Promise<{state: *, status: string}|{msg: string, error: *}>}
    */
   async getDevicePowerState(deviceId, channel = 1) {
+    const device = await this.getDevice(deviceId);
+    if ( this.devicesCache ) {
+      return ChangeStateZeroconf.get({
+        url: this.getZeroconfUrl(device),
+        device,
+        switches: device.params.switches
+      });
+    }
+    
     const status = await this.makeRequest({
       uri: '/user/device/status',
       qs: deviceStatusPayload({
