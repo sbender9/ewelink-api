@@ -35,9 +35,11 @@ module.exports = {
     await wsp.open();
     await wsp.send(payloadLogin);
 
+    /*
     setInterval(async () => {
       await wsp.send('ping');
     }, heartbeat);
+    */
 
     return wsp;
   },
