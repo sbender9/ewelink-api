@@ -2,7 +2,7 @@ const STATE_ON = 'on';
 const STATE_OFF = 'off';
 const STATE_TOGGLE = 'toggle';
 
-const VALID_POWER_STATES = [STATE_ON, STATE_OFF, STATE_TOGGLE];
+const VALID_POWER_STATES = [STATE_ON, STATE_OFF];
 
 /**
  * Return new device state based on current conditions
@@ -19,10 +19,10 @@ const getNewPowerState = (currentState, newState) => {
  */
 const getPowerStateParams = (params, newState, channel) => {
   if (params.switches) {
-    const switches = [...params.switches];
-    const channelToSwitch = channel - 1;
-    switches[channelToSwitch].switch = newState;
-    return { switches };
+    //const switches = [...params.switches];
+    //const channelToSwitch = channel - 1;
+    //switches[channelToSwitch].switch = newState;
+    return { switches: [{ switch: newState, channel}] }; 
   }
   return { switch: newState };
 };

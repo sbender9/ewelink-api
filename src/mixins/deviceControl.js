@@ -53,6 +53,8 @@ module.exports = {
     this.wsp = new WebSocketAsPromised(WSS_URL, WSS_CONFIG);
 
     // catch autentication errors
+
+    /*
     let socketError;
     this.wsp.onMessage.addListener(async message => {
       const data = JSON.parse(message);
@@ -61,6 +63,7 @@ module.exports = {
         await this.webSocketClose();
       }
     });
+    */
 
     // open socket connection
     await this.wsp.open();
@@ -69,9 +72,11 @@ module.exports = {
     await this.webSocketHandshake();
 
     // if auth error exists, throw an error
+    /*
     if (socketError) {
       throw new Error(errors[socketError.error]);
     }
+    */
   },
 
   /**
@@ -228,35 +233,18 @@ module.exports = {
     const { channel = 1, shared = false } = options;
 
     // if device is shared by other account, fetch device api key
+    const device = await this.getDevice(deviceId);
     if (shared) {
-      const device = await this.getDevice(deviceId);
       this.deviceApiKey = device.apikey;
     }
 
-    // get device current state
-    const status = await this.getWSDeviceStatus(deviceId, [
-      'switch',
-      'switches',
-    ]);
-
-    // check for multi-channel device
-    const multiChannelDevice = !!status.params.switches;
-
-    // get current device state
-    const currentState = multiChannelDevice
-      ? status.params.switches[channel - 1].switch
-      : status.params.switch;
-
-    // resolve new power state
-    const stateToSwitch = getNewPowerState(currentState, state);
-
     // build request payload
-    const params = getPowerStateParams(status.params, stateToSwitch, channel);
+    const params = getPowerStateParams(device.params, state, channel);
 
     // change device status
     try {
       await this.updateDeviceStatus(deviceId, params);
-      await delay(this.wsDelayTime);
+      //await delay(this.wsDelayTime);
     } catch (error) {
       throw new Error(error);
     } finally {
@@ -265,8 +253,6 @@ module.exports = {
 
     return {
       status: 'ok',
-      state: stateToSwitch,
-      channel: multiChannelDevice ? channel : 1,
     };
   },
 
@@ -282,16 +268,17 @@ module.exports = {
       this.deviceApiKey = device.apikey;
     }
 
-    // get device current state
+    /*
     const status = await this.getWSDeviceStatus(deviceId, [
       'switch',
       'switches',
     ]);
+    */
 
     // change device status
     try {
       await this.updateDeviceStatus(deviceId, params);
-      await delay(this.wsDelayTime);
+      //await delay(this.wsDelayTime);
     } catch (error) {
       throw new Error(error);
     } finally {
