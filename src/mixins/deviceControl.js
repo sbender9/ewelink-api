@@ -2,8 +2,11 @@ const W3CWebSocket = require('websocket').w3cwebsocket;
 const WebSocketAsPromised = require('websocket-as-promised');
 const delay = require('delay');
 
-const { nonce, timestamp } = require('../helpers/utilities');
+const { nonce } = require('../helpers/utilities');
 const errors = require('../data/errors');
+
+const timestamp = () => Math.floor(new Date() / 1000);
+const sequence = () => Math.floor(new Date())
 
 const {
   VALID_POWER_STATES,
@@ -32,13 +35,13 @@ module.exports = {
     const payload = JSON.stringify({
       action: 'userOnline',
       version: 8,
-      ts: timestamp,
+      ts: timestamp(),
       at: this.at,
       userAgent: 'app',
       apikey,
       appid: this.APP_ID,
       nonce,
-      sequence: Math.floor(timestamp * 1000),
+      sequence: sequence()
     });
 
     await this.wsp.send(payload);
@@ -58,22 +61,27 @@ module.exports = {
   /**
    * Update device status (timers, share status, on/off etc)
    */
-  async updateDeviceStatus(deviceId, params) {
+  async updateDeviceStatus(deviceId, params, seq = null) {
     await this.initDeviceControl();
 
     const apikey = this.deviceApiKey || this.apiKey;
+
+    if ( !seq ) {
+      seq = sequence()
+    }
 
     const payload = JSON.stringify({
       action: 'update',
       deviceid: deviceId,
       apikey,
       userAgent: 'app',
-      sequence: Math.floor(timestamp * 1000),
-      ts: timestamp,
+      sequence: seq,
+      ts: timestamp(),
       params,
     });
 
-    return this.wsp.send(payload);
+    await this.wsp.send(payload);
+    return payload
   },
 
   /**
@@ -84,12 +92,14 @@ module.exports = {
 
     let response = null;
 
+    /*
     this.wsp.onMessage.addListener(message => {
       const data = JSON.parse(message);
       if (data.deviceid === deviceId) {
         response = data;
       }
     });
+    */
 
     const apikey = this.deviceApiKey || this.apiKey;
 
@@ -98,20 +108,22 @@ module.exports = {
       deviceid: deviceId,
       apikey,
       userAgent: 'app',
-      sequence: Math.floor(timestamp * 1000),
-      ts: timestamp,
+      sequence: sequence(),
+      ts: timestamp(),
       params,
     });
 
     this.wsp.send(payload);
-    await delay(this.wsDelayTime);
+    //await delay(this.wsDelayTime);
 
+    /*
     // throw error on invalid device
     if (response.error) {
       throw new Error(errors[response.error]);
     }
 
     return response;
+    */
   },
 
   /**
@@ -167,7 +179,7 @@ module.exports = {
   /**
    * Set device power state
    */
-  async setWSDevicePowerState(deviceId, state, options = {}) {
+  setWSDevicePowerState(deviceId, state, options = {}) {
     // check for valid power state
     if (!VALID_POWER_STATES.includes(state)) {
       throw new Error(errors.invalidPowerState);
@@ -176,30 +188,83 @@ module.exports = {
     // get extra parameters
     const { channel = 1, shared = false } = options;
 
-    // if device is shared by other account, fetch device api key
-    const device = await this.getDevice(deviceId);
-    if (shared) {
-      this.deviceApiKey = device.apikey;
-    }
+ 
+    const that = this
+    return new Promise((resolve, reject) => {
+      that.getDevice(deviceId).then(device => {
+        if (shared) {
+          that.deviceApiKey = device.apikey;
+        }
 
-    // build request payload
-    const params = getPowerStateParams(device.params, state, channel);
-
-    // change device status
-    try {
-      await this.updateDeviceStatus(deviceId, params);
-      //await delay(this.wsDelayTime);
-    } catch (error) {
-      throw new Error(error);
-    } finally {
-      //await this.webSocketClose();
-    }
-
-    return {
-      status: 'ok',
-    };
+        const params = getPowerStateParams(device.params, state, channel);
+        
+        let timeout
+        const seq = sequence()
+        const listener = message => {
+          const data = JSON.parse(message);
+          if (data.deviceid === deviceId && data.sequence == seq) {
+            if ( timeout ) {
+            clearTimeout(timeout)
+            }
+            that.wsp.onMessage.removeListener(listener)
+            resolve({ status: data.error === 0 ? 'ok' : 'error'});
+          }
+        }
+        
+        that.wsp.onMessage.addListener(listener);
+        
+        timeout = setTimeout(() => {
+          timeout = undefined
+          that.ws.onMessage.removeListener(listener)
+          reject({ status: 'error', message: 'timed out waiting for response'})
+        }, 5000)
+        
+        that.updateDeviceStatus(deviceId, params, seq).catch(reject)
+      })
+        .catch(reject)
+    })
   },
 
+  setWSDeviceParams(deviceId, params, options = {}) {
+    // get extra parameters
+    const { channel = 1, shared = false } = options;
+
+    const that = this
+    return new Promise((resolve, reject) => {
+      that.getDevice(deviceId).then(device => {
+        if (shared) {
+          that.deviceApiKey = device.apikey;
+        }
+        
+        let timeout
+        const seq = sequence()
+        const listener = message => {
+          const data = JSON.parse(message);
+          if (data.deviceid === deviceId && data.sequence == seq) {
+            if ( timeout ) {
+            clearTimeout(timeout)
+            }
+            that.wsp.onMessage.removeListener(listener)
+            resolve({ status: data.error === 0 ? 'ok' : 'error'});
+          }
+        }
+        
+        that.wsp.onMessage.addListener(listener);
+        
+        timeout = setTimeout(() => {
+          timeout = undefined
+          that.ws.onMessage.removeListener(listener)
+          reject({ status: 'error', message: 'timed out waiting for response'})
+        }, 5000)
+        
+        that.updateDeviceStatus(deviceId, params, seq).catch(reject)
+      })
+        .catch(reject)
+    })
+  },
+  
+
+  /*
   async setWSDeviceParams(deviceId, params, options = {}) {
     // check for valid power state
 
@@ -211,13 +276,6 @@ module.exports = {
       const device = await this.getDevice(deviceId);
       this.deviceApiKey = device.apikey;
     }
-
-    /*
-    const status = await this.getWSDeviceStatus(deviceId, [
-      'switch',
-      'switches',
-    ]);
-    */
 
     // change device status
     try {
@@ -233,7 +291,7 @@ module.exports = {
       status: 'ok'
     };
   },
-
+  */
   
   
 };
