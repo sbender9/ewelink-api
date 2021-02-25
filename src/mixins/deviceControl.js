@@ -18,67 +18,11 @@ module.exports = {
     // check if socket is already initialized
     if (this.wsp) {
       return;
+    } else {
+      throw new Error('no websocket open');
     }
-
-    const { APP_ID, at, apiKey } = this;
-
-    // set delay between socket messages
-    const { delayTime = 1000 } = params;
-    this.wsDelayTime = delayTime;
-
-    // request credentials if needed
-    if (at === null || apiKey === null) {
-      await this.getCredentials();
-    }
-
-    // request distribution service
-    const dispatch = await this.makeRequest({
-      method: 'post',
-      url: `https://${this.region}-api.coolkit.cc:8080`,
-      uri: '/dispatch/app',
-      body: {
-        accept: 'ws',
-        appid: APP_ID,
-        nonce,
-        ts: timestamp,
-        version: 8,
-      },
-    });
-
-    // WebSocket parameters
-    const WSS_URL = `wss://${dispatch.domain}:${dispatch.port}/api/ws`;
-    const WSS_CONFIG = { createWebSocket: wss => new W3CWebSocket(wss) };
-
-    // open WebSocket connection
-    this.wsp = new WebSocketAsPromised(WSS_URL, WSS_CONFIG);
-
-    // catch autentication errors
-
-    /*
-    let socketError;
-    this.wsp.onMessage.addListener(async message => {
-      const data = JSON.parse(message);
-      if (data.error) {
-        socketError = data;
-        await this.webSocketClose();
-      }
-    });
-    */
-
-    // open socket connection
-    await this.wsp.open();
-
-    // WebSocket handshake
-    await this.webSocketHandshake();
-
-    // if auth error exists, throw an error
-    /*
-    if (socketError) {
-      throw new Error(errors[socketError.error]);
-    }
-    */
   },
-
+  
   /**
    * WebSocket authentication process
    */
