@@ -19,10 +19,11 @@ const getNewPowerState = (currentState, newState) => {
  */
 const getPowerStateParams = (params, newState, channel) => {
   if (params.switches) {
-    //const switches = [...params.switches];
-    //const channelToSwitch = channel - 1;
-    //switches[channelToSwitch].switch = newState;
-    return { switches: [{ switch: newState, channel}] }; 
+    const switches = [...params.switches];
+    const channelToSwitch = channel - 1;
+    switches[channelToSwitch].switch = newState;
+    //return { switches: [{ switch: newState, channel}] };
+    return { switches };
   }
   return { switch: newState };
 };

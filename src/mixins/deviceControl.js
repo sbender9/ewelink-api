@@ -201,13 +201,18 @@ module.exports = {
         let timeout
         const seq = sequence()
         const listener = message => {
-          const data = JSON.parse(message);
+          let data
+          try {
+            data = JSON.parse(message);
+          } catch (err) {
+            return
+          }
           if (data.deviceid === deviceId && data.sequence == seq) {
             if ( timeout ) {
-            clearTimeout(timeout)
+              clearTimeout(timeout)
             }
             that.wsp.onMessage.removeListener(listener)
-            resolve({ status: data.error === 0 ? 'ok' : 'error'});
+            resolve({ status: data.error === 0 ? 'ok' : 'error', message: data.reason});
           }
         }
         
@@ -215,8 +220,8 @@ module.exports = {
         
         timeout = setTimeout(() => {
           timeout = undefined
-          that.ws.onMessage.removeListener(listener)
-          reject({ status: 'error', message: 'timed out waiting for response'})
+          that.wsp.onMessage.removeListener(listener)
+          resolve({ status: 'error', message: 'timed out waiting for response'})
         }, 5000)
         
         that.updateDeviceStatus(deviceId, params, seq).catch(reject)
@@ -238,14 +243,21 @@ module.exports = {
         
         let timeout
         const seq = sequence()
+
         const listener = message => {
-          const data = JSON.parse(message);
+          let data
+          try {
+            data = JSON.parse(message);
+          } catch (err) {
+            return
+          }
+          
           if (data.deviceid === deviceId && data.sequence == seq) {
             if ( timeout ) {
-            clearTimeout(timeout)
+              clearTimeout(timeout)
             }
             that.wsp.onMessage.removeListener(listener)
-            resolve({ status: data.error === 0 ? 'ok' : 'error'});
+            resolve({ status: data.error === 0 ? 'ok' : 'error', message: data.reason});
           }
         }
         
