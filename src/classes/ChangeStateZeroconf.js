@@ -17,6 +17,7 @@ class ChangeStateZeroconf extends WebSocket {
     const request = await fetch(`${url}/${endpoint}`, {
       method: 'post',
       body: JSON.stringify(body),
+      timeout: 2000
     });
 
     const response = await request.json();
